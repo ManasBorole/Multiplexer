@@ -2,13 +2,15 @@
 
 # Multiplexer
 
+**Note:** This project was originally developed in **Jun 2026**. I am publishing it here in **Aug 2026** as part of sharing my past work.
+
 ### A learned LLM routing gateway
 
 Multiplexer sits in front of many LLM providers and **learns, in real time, which model to route each request to** - optimizing cost, latency, and quality together with a contextual multi-armed bandit. Not a config file. Not a fan-out compare tool. An adaptive routing system that shows its work.
 
 <br />
 
-<a href="https://multiplexer-routes.vercel.app/"><img alt="Live Demo" src="https://img.shields.io/badge/%20Live%20Demo-multiplexer--routes.vercel.app-FF7A6B?style=for-the-badge&labelColor=141019&logo=vercel&logoColor=white" /></a>
+<a href="https://multiplexer-routes.vercel.app/"><img alt="Live Demo" src="https://img.shields.io/badge/%E2%96%B6%20Live%20Demo-multiplexer--routes.vercel.app-FF7A6B?style=for-the-badge&labelColor=141019" /></a>
 
 <br /><br />
 
