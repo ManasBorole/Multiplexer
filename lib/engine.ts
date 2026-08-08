@@ -5,6 +5,7 @@ import { store, armStats, pushHistory, recordAB } from "./store";
 import { judge } from "./judge";
 import { circuitAllows, recordFailure, recordSuccess } from "./circuit";
 import { staticPick, randomPick, estCost } from "./policies";
+import { HAS_KEY, fetchWithKeyRotation } from "./openrouter";
 import type {
   Candidate,
   ModelDef,
@@ -13,7 +14,6 @@ import type {
   Weights,
 } from "./types";
 
-const HAS_KEY = !!process.env.OPENROUTER_API_KEY;
 const ALPHA = 0.68; // UCB exploration width
 const DECAY = 0.995; // <1 → discounted LinUCB: gently adapts to drift/health
 
@@ -249,22 +249,24 @@ async function realCall(
 ): Promise<CallResult> {
   const started = Date.now();
   try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://multiplexer.dev",
-        "X-Title": "Multiplexer",
-      },
-      body: JSON.stringify({
-        model: model.id,
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 640,
-        stream: true,
-        stream_options: { include_usage: true },
+    const res = await fetchWithKeyRotation((key) =>
+      fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://multiplexer.dev",
+          "X-Title": "Multiplexer",
+        },
+        body: JSON.stringify({
+          model: model.id,
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 640,
+          stream: true,
+          stream_options: { include_usage: true },
+        }),
       }),
-    });
+    );
     if (!res.ok || !res.body) throw new Error(`provider ${res.status}`);
 
     // Parse the SSE stream: `data: {json}` lines carry token deltas; a trailing
