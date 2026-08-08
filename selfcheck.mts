@@ -39,7 +39,27 @@ assert(g.score > b.score, "learned arm scores higher");
 const fresh = scoreArm(newArm(6), x, 0.35);
 assert(fresh.bonus > 0, "unseen arm has exploration bonus");
 
-console.log("OK - invert, LinUCB convergence, and exploration bonus all pass.");
+// Judge budget: when the real judge model is unreachable or over budget (its
+// fetch rejects/aborts), judge() must not throw and must fall back to the local
+// heuristic so the answer still returns promptly. Force the keyed path with a
+// fetch stub that rejects, and assert a valid verdict comes back regardless.
+process.env.OPENROUTER_API_KEY = "sk-test-selfcheck";
+const realFetch = globalThis.fetch;
+globalThis.fetch = (() => Promise.reject(new Error("aborted"))) as typeof fetch;
+const { judge } = await import("./lib/judge.ts");
+const verdict = await judge(
+  "Write a Python function to reverse a string.",
+  "def reverse(s): return s[::-1]",
+  0.8,
+);
+globalThis.fetch = realFetch;
+assert(
+  verdict && typeof verdict.score === "number" && verdict.score >= 0.2 && verdict.score <= 0.99,
+  "judge falls back to a bounded heuristic verdict when the judge model is unavailable",
+);
+assert(verdict.reasoning.length > 0, "fallback verdict carries a rationale");
+
+console.log("OK - invert, LinUCB convergence, exploration bonus, and judge fallback all pass.");
 console.log(
-  `   good.mean=${g.mean.toFixed(3)} bad.mean=${b.mean.toFixed(3)} fresh.bonus=${fresh.bonus.toFixed(3)}`,
+  `   good.mean=${g.mean.toFixed(3)} bad.mean=${b.mean.toFixed(3)} fresh.bonus=${fresh.bonus.toFixed(3)} judge=${verdict.score.toFixed(2)}`,
 );
