@@ -23,11 +23,13 @@ export default function Pipeline({
   active,
   responseReady,
   cached,
+  streamText,
   onComplete,
 }: {
   active: boolean;
   responseReady: boolean;
   cached: boolean;
+  streamText: string;
   onComplete: () => void;
 }) {
   const [done, setDone] = useState(-1); // highest completed step index
@@ -97,7 +99,7 @@ export default function Pipeline({
   const label = (i: number) => {
     if (cached && i === 4 && done >= 4) return "Semantic cache - match found";
     if (cached && (i === 5 || i === 6) && done >= 5) return "Served from cache";
-    if (i === 5 && waiting) return "Sending request…";
+    if (i === 5 && waiting) return streamText ? "Receiving response…" : "Sending request…";
     return STEPS[i];
   };
 
@@ -174,6 +176,21 @@ export default function Pipeline({
           );
         })}
       </ol>
+
+      <AnimatePresence>
+        {streamText && done < 6 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="mt-4 max-h-40 overflow-y-auto rounded-xl border border-border-soft bg-surface/80 px-3.5 py-2.5 text-[13px] leading-relaxed text-ink-3 whitespace-pre-wrap"
+          >
+            {streamText}
+            <span className="ml-0.5 inline-block h-3.5 w-1.5 -translate-y-px animate-pulse bg-coral align-middle" />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

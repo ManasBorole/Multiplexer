@@ -43,6 +43,7 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [busy, setBusy] = useState(false);
   const [responseReady, setResponseReady] = useState(false);
+  const [streamText, setStreamText] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const pending = useRef<RequestRecord | null>(null);
@@ -82,6 +83,7 @@ export default function App() {
     setBusy(true);
     setPhase("pipeline");
     setResponseReady(false);
+    setStreamText("");
     pending.current = null;
     setLatest(null);
     try {
@@ -90,8 +92,36 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: clean, weights: weightsRef.current }),
       });
-      const data = await r.json();
-      pending.current = data.record ?? null;
+      if (!r.ok || !r.body) throw new Error("route failed");
+      // Read the NDJSON stream: token frames build the live answer, the done
+      // frame carries the final record. responseReady flips once the record is
+      // in hand, so the pipeline finishes on real completion as before.
+      const reader = r.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let acc = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, nl).trim();
+          buf = buf.slice(nl + 1);
+          if (!line) continue;
+          try {
+            const msg = JSON.parse(line);
+            if (msg.type === "token") {
+              acc += msg.v;
+              setStreamText(acc);
+            } else if (msg.type === "done") {
+              pending.current = msg.record ?? null;
+            }
+          } catch {
+            /* skip a malformed line */
+          }
+        }
+      }
       setResponseReady(true);
     } catch {
       pending.current = null;
@@ -193,6 +223,7 @@ export default function App() {
                 active
                 responseReady={responseReady}
                 cached={pending.current?.cached ?? false}
+                streamText={streamText}
                 onComplete={onPipelineDone}
               />
             </motion.div>

@@ -239,9 +239,13 @@ function syntheticResponse(model: ModelDef, prompt: string): string {
   }". Add an OPENROUTER_API_KEY to stream real completions - the routing, cache, and metrics above are live either way.`;
 }
 
+// Streamed provider call. Deltas are forwarded to onToken as they arrive so the
+// client can render the answer while it generates, instead of waiting out the
+// full completion; the returned CallResult is identical to a buffered call.
 async function realCall(
   model: ModelDef,
   prompt: string,
+  onToken?: (t: string) => void,
 ): Promise<CallResult> {
   const started = Date.now();
   try {
@@ -257,15 +261,50 @@ async function realCall(
         model: model.id,
         messages: [{ role: "user", content: prompt }],
         max_tokens: 640,
+        stream: true,
+        stream_options: { include_usage: true },
       }),
     });
-    if (!res.ok) throw new Error(`provider ${res.status}`);
-    const data = await res.json();
-    const text: string = data?.choices?.[0]?.message?.content ?? "";
-    const tokensIn: number =
-      data?.usage?.prompt_tokens ?? estTokens(prompt.length);
-    const tokensOut: number =
-      data?.usage?.completion_tokens ?? estTokens(text.length);
+    if (!res.ok || !res.body) throw new Error(`provider ${res.status}`);
+
+    // Parse the SSE stream: `data: {json}` lines carry token deltas; a trailing
+    // chunk carries usage. Comment lines (`: ...`) and `[DONE]` are ignored.
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let text = "";
+    let usageIn = 0;
+    let usageOut = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl: number;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (payload === "[DONE]") continue;
+        try {
+          const j = JSON.parse(payload);
+          const delta: string = j?.choices?.[0]?.delta?.content ?? "";
+          if (delta) {
+            text += delta;
+            onToken?.(delta);
+          }
+          if (j?.usage) {
+            usageIn = j.usage.prompt_tokens ?? usageIn;
+            usageOut = j.usage.completion_tokens ?? usageOut;
+          }
+        } catch {
+          /* partial/non-JSON keepalive line - skip */
+        }
+      }
+    }
+
+    const tokensIn = usageIn || estTokens(prompt.length);
+    const tokensOut = usageOut || estTokens(text.length);
     const cost = (tokensIn * model.priceIn + tokensOut * model.priceOut) / 1e6;
     const baseline =
       (tokensIn * FLAGSHIP.priceIn + tokensOut * FLAGSHIP.priceOut) / 1e6;
@@ -305,20 +344,26 @@ async function callModel(
   model: ModelDef,
   prompt: string,
   difficulty: number,
+  onToken?: (t: string) => void,
 ): Promise<CallResult> {
-  if (HAS_KEY) return realCall(model, prompt);
+  if (HAS_KEY) return realCall(model, prompt, onToken);
   // small simulated outage so failure handling is visible on the instrument
   if (Math.random() < 0.045) {
     const partial = simulateCall(model, prompt, difficulty);
     return { ...partial, failed: true, response: "", quality: 0 };
   }
-  return simulateCall(model, prompt, difficulty);
+  const result = simulateCall(model, prompt, difficulty);
+  // Keep the streaming contract uniform without faking latency: the simulated
+  // answer is already computed, so emit it as a single chunk.
+  onToken?.(result.response);
+  return result;
 }
 
 // ── Orchestration ───────────────────────────────────────────────────────────
 export async function handleRequest(
   prompt: string,
   weights?: Weights,
+  onToken?: (t: string) => void,
 ): Promise<RequestRecord> {
   const s = store();
   if (weights) s.weights = weights;
@@ -461,7 +506,7 @@ export async function handleRequest(
   // one answers - so a single rate-limited or down provider never drops a
   // request. Only if all of them fail does the request itself fail.
   let chosen = best.model;
-  let call = await callModel(chosen, prompt, difficulty);
+  let call = await callModel(chosen, prompt, difficulty, onToken);
   let failed = false;
   if (call.failed) {
     failed = true;
