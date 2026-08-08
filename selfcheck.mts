@@ -39,7 +39,37 @@ assert(g.score > b.score, "learned arm scores higher");
 const fresh = scoreArm(newArm(6), x, 0.35);
 assert(fresh.bonus > 0, "unseen arm has exploration bonus");
 
-console.log("OK - invert, LinUCB convergence, and exploration bonus all pass.");
+// Key rotation: a 429 (free-tier daily cap) on one key must transparently fall
+// through to the next key, then stick to whichever key worked. Two keys are
+// configured; the stub 429s the first and serves the second.
+process.env.OPENROUTER_API_KEY = "k1";
+process.env.OPENROUTER_API_KEY_2 = "k2";
+const { fetchWithKeyRotation, HAS_KEY, KEY_COUNT } = await import("./lib/openrouter.ts");
+assert(HAS_KEY && KEY_COUNT === 2, "both keys are loaded");
+const resp = (status: number) => ({ status, ok: status < 400 }) as Response;
+
+const tried: string[] = [];
+let r = await fetchWithKeyRotation((k) => {
+  tried.push(k);
+  return Promise.resolve(resp(k === "k1" ? 429 : 200));
+});
+assert(r.status === 200 && tried.join(",") === "k1,k2", "429 on k1 rotates to k2");
+
+const tried2: string[] = [];
+await fetchWithKeyRotation((k) => {
+  tried2.push(k);
+  return Promise.resolve(resp(200));
+});
+assert(tried2.join(",") === "k2", "sticks to the last working key");
+
+const tried3: string[] = [];
+r = await fetchWithKeyRotation((k) => {
+  tried3.push(k);
+  return Promise.resolve(resp(429));
+});
+assert(r.status === 429 && tried3.length === 2, "both exhausted → final 429 after trying each");
+
+console.log("OK - invert, LinUCB convergence, exploration bonus, and key rotation all pass.");
 console.log(
-  `   good.mean=${g.mean.toFixed(3)} bad.mean=${b.mean.toFixed(3)} fresh.bonus=${fresh.bonus.toFixed(3)}`,
+  `   good.mean=${g.mean.toFixed(3)} bad.mean=${b.mean.toFixed(3)} fresh.bonus=${fresh.bonus.toFixed(3)} keys=${KEY_COUNT}`,
 );

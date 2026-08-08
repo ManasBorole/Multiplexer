@@ -49,17 +49,37 @@ export async function POST(req: Request) {
 
   const weights = sanitizeWeights(body.weights);
   await ensureSeeded();
-  const record = await handleRequest(prompt, weights);
-  return NextResponse.json(
-    { record, state: computeState() },
-    {
-      headers: {
-        "Cache-Control": "no-store",
-        "X-RateLimit-Limit": String(rl.tenant.rpm),
-        "X-RateLimit-Remaining": String(rl.remaining),
-      },
+
+  // Stream the lifecycle as newline-delimited JSON: `token` frames carry the
+  // answer as it generates, and a final `done` frame carries the full record +
+  // state (routing decision, judge, cost, latency) once scoring completes. This
+  // lets the UI show the answer forming instead of blocking on the whole call.
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (obj: unknown) =>
+        controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+      try {
+        const record = await handleRequest(prompt, weights, (t) =>
+          send({ type: "token", v: t }),
+        );
+        send({ type: "done", record, state: computeState() });
+      } catch {
+        send({ type: "error", error: "Request failed while routing." });
+      } finally {
+        controller.close();
+      }
     },
-  );
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-RateLimit-Limit": String(rl.tenant.rpm),
+      "X-RateLimit-Remaining": String(rl.remaining),
+    },
+  });
 }
 
 function sanitizeWeights(w?: Weights): Weights | undefined {

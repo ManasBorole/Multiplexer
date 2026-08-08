@@ -7,6 +7,23 @@ const post = (path, body) =>
     body: JSON.stringify(body),
   }).then((r) => r.json());
 const get = (path) => fetch(BASE + path).then((r) => r.json());
+// /api/route now streams NDJSON (token frames + a final done frame). Drain it
+// and return the done frame's payload so the checks below read the same shape.
+const route = async (body) => {
+  const res = await fetch(BASE + "/api/route", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (!t) continue;
+    const msg = JSON.parse(t);
+    if (msg.type === "done") return { record: msg.record, state: msg.state };
+  }
+  return { record: null };
+};
 const short = (id) => id.split("/")[1].replace(":free", "");
 
 const PROMPTS = [
@@ -24,22 +41,22 @@ const PROMPTS = [
 
 console.log("═══ generating traffic ═══");
 for (const p of PROMPTS) {
-  const { record: r } = await post("/api/route", { prompt: p });
+  const { record: r } = await route({ prompt: p });
   console.log(` ${r.failed ? "✗" : "✓"} ${short(r.modelId).padEnd(26)} ${r.latencyMs}ms`);
 }
 
 // ── CACHE: send the same prompt twice ──
 console.log("\n═══ CACHE (repeat prompt) ═══");
 const dup = "What is Docker used for? One sentence.";
-await post("/api/route", { prompt: dup });
-const { record: cacheRec } = await post("/api/route", { prompt: dup });
+await route({ prompt: dup });
+const { record: cacheRec } = await route({ prompt: dup });
 console.log("2nd send → cached:", cacheRec.cached, "| similarity:", (cacheRec.similarity * 100).toFixed(1) + "%", "| responseTime:", cacheRec.latencyMs + "ms", "| cost:", cacheRec.costUsd);
 
 // ── FAILURE: offline the flagship, route a quality prompt ──
 console.log("\n═══ FAILOVER (provider offline) ═══");
 const flagship = "nvidia/nemotron-3-ultra-550b-a55b:free";
 await post("/api/provider", { modelId: flagship, offline: true });
-const { record: foRec } = await post("/api/route", {
+const { record: foRec } = await route({
   prompt: "Prove the Pythagorean theorem with a rigorous geometric argument.",
   weights: { quality: 0.9, cost: 0.05, latency: 0.05 },
 });
