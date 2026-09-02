@@ -115,7 +115,7 @@ The context vector is `[bias, lengthNorm, code, question, reasoning, rare, wQual
 
 **Routing core** · Custom LinUCB contextual bandit, semantic cache, and circuit breaker (no ML dependency)
 
-**Tooling** · Puppeteer-core (screenshots) · Node `--experimental-strip-types` (self-check)
+**Tooling** · Puppeteer-core (screenshots) · Node `--experimental-strip-types` (self-check) · Python (NumPy/Pandas) offline routing-policy evaluation
 
 > Designed to run entirely on **reliable free tiers** — no paid dependency is required to run the demo.
 
@@ -169,6 +169,13 @@ node --experimental-strip-types selfcheck.mts   # unit-checks the bandit math
 node capture.mjs                             # regenerate screenshots (Chrome required)
 ```
 
+Benchmark the routing policy offline (no server or API key needed) — it reimplements the LinUCB bandit, simulates a request stream, and reports cost and latency savings versus an always-premium baseline:
+
+```bash
+pip install -r eval/requirements.txt
+python eval/route_eval.py
+```
+
 Open [http://localhost:3000](http://localhost:3000), type a prompt, and watch it route.
 
 ---
@@ -218,6 +225,9 @@ multiplexer/
 │   ├── state.ts                 # aggregate state builders
 │   ├── tenants.ts               # per-tenant rate limits
 │   └── format.ts                # display formatting
+├── eval/
+│   ├── route_eval.py            # offline LinUCB policy evaluation (NumPy/Pandas)
+│   └── requirements.txt         # eval-only Python deps
 ├── verify.mjs                   # end-to-end feature checks
 ├── selfcheck.mts                # bandit-math unit checks
 ├── capture.mjs                  # screenshot capture
