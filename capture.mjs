@@ -16,24 +16,14 @@ const browser = await puppeteer.launch({
 async function shot(name, { width, url, wait = 2500, clickDemo = false }) {
   const page = await browser.newPage();
   await page.setViewport({ width, height: 1000, deviceScaleFactor: 1 });
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await sleep(800);
+  // ?demo=1 routes the first example prompt on load.
+  await page.goto(clickDemo ? url + "?demo=1" : url, { waitUntil: "domcontentloaded", timeout: 60000 });
   if (clickDemo) {
-    await sleep(600);
-    await page.evaluate(() => {
-      const b = [...document.querySelectorAll("button")].find((x) =>
-        /try the demo/i.test(x.textContent || ""),
-      );
-      b?.click();
-    });
-    // wait for the real model response → result cards to render
+    // wait for the real model response and the routing decision panel
     await page
-      .waitForFunction(
-        () => document.body.innerText.includes("Routing Decision"),
-        { timeout: 45000 },
-      )
+      .waitForFunction(() => document.body.innerText.includes("Routing decision"), { timeout: 90000 })
       .catch(() => {});
-    await sleep(1800);
+    await sleep(1200);
   } else {
     await sleep(wait);
   }
