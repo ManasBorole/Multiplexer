@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: { prompt?: string; weights?: Weights } = {};
+  let body: { prompt?: string; weights?: Weights; skipCache?: boolean } = {};
   try {
     body = await req.json();
   } catch {
@@ -60,8 +60,11 @@ export async function POST(req: Request) {
       const send = (obj: unknown) =>
         controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
       try {
-        const record = await handleRequest(prompt, weights, (t) =>
-          send({ type: "token", v: t }),
+        const record = await handleRequest(
+          prompt,
+          weights,
+          (t) => send({ type: "token", v: t }),
+          { skipCache: body.skipCache === true },
         );
         send({ type: "done", record, state: computeState() });
       } catch {

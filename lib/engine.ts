@@ -366,6 +366,7 @@ export async function handleRequest(
   prompt: string,
   weights?: Weights,
   onToken?: (t: string) => void,
+  opts: { skipCache?: boolean } = {},
 ): Promise<RequestRecord> {
   const s = store();
   if (weights) s.weights = weights;
@@ -396,7 +397,8 @@ export async function handleRequest(
     status: "ok",
   });
 
-  if (hit.hit && hit.entry) {
+  // skipCache: a deliberate re-route (e.g. new weights) must reach the bandit.
+  if (!opts.skipCache && hit.hit && hit.entry) {
     stages.push({
       key: "cache",
       label: "Semantic cache",
@@ -440,7 +442,9 @@ export async function handleRequest(
   stages.push({
     key: "cache",
     label: "Semantic cache",
-    detail: `miss · nearest ${(hit.similarity * 100).toFixed(1)}%`,
+    detail: opts.skipCache
+      ? `bypassed for re-route · nearest ${(hit.similarity * 100).toFixed(1)}%`
+      : `miss · nearest ${(hit.similarity * 100).toFixed(1)}%`,
     ms: 1,
     status: "skip",
   });

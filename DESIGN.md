@@ -1,220 +1,213 @@
 ---
 name: Multiplexer
-description: An LLM routing gateway told as a warm, animated product story.
+description: A learned LLM router explained by its own cards - a tilted dashboard you can lift, a fly-through of one request, and the live results.
 colors:
-  bg: "#141019"
-  bg-2: "#181320"
-  surface: "#1E1727"
-  surface-2: "#261E32"
-  surface-3: "#30273D"
-  border: "#352B44"
-  border-soft: "#2A2235"
-  ink: "#F6F0FA"
-  ink-2: "#C3B7D2"
-  ink-3: "#948AA6"
-  ink-4: "#6E6483"
-  coral: "#FF7A6B"
-  rose: "#FF6E9C"
-  mint: "#3FE0A0"
-  amber: "#FFC24B"
-  sky: "#5CC8FF"
-  violet: "#A78BFA"
-  danger: "#FF5C6A"
+  bg: "#0D1015"
+  bg-2: "#121821"
+  card: "#161B23"
+  card-2: "#1C232D"
+  inset: "#0F1318"
+  line: "#27303C"
+  line-2: "#343F4E"
+  ink: "#EDF1F6"
+  dim: "#9AA5B4"
+  mute: "#8591A2"
+  acc: "#5B8CFF"
+  good: "#34D399"
+  warn: "#F5B94A"
+  bad: "#F2605A"
+  code: "#C9D3E0"
 typography:
   display:
-    fontFamily: "Bricolage Grotesque, system-ui, sans-serif"
-    fontSize: "clamp(3.5rem, 9vw, 6rem)"
+    fontFamily: "Archivo, Schibsted Grotesk, system-ui, sans-serif"
+    fontSize: "clamp(2.1rem, 3.9vw, 3.25rem)"
     fontWeight: 800
-    lineHeight: 1
+    lineHeight: 1.03
     letterSpacing: "-0.035em"
-  headline:
-    fontFamily: "Bricolage Grotesque, system-ui, sans-serif"
-    fontSize: "clamp(1.5rem, 3vw, 2rem)"
+  section:
+    fontFamily: "Archivo, Schibsted Grotesk, system-ui, sans-serif"
+    fontSize: "1.75rem"
     fontWeight: 700
     lineHeight: 1.1
-    letterSpacing: "-0.02em"
+    letterSpacing: "-0.025em"
   title:
-    fontFamily: "Bricolage Grotesque, system-ui, sans-serif"
-    fontSize: "0.9375rem"
+    fontFamily: "Schibsted Grotesk, system-ui, sans-serif"
+    fontSize: "15.5px"
     fontWeight: 700
-    lineHeight: 1.2
-    letterSpacing: "-0.02em"
+    lineHeight: 1.3
+    letterSpacing: "-0.01em"
   body:
-    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
-    fontSize: "0.9375rem"
+    fontFamily: "Schibsted Grotesk, system-ui, sans-serif"
+    fontSize: "15px"
     fontWeight: 400
-    lineHeight: 1.6
+    lineHeight: 1.55
     letterSpacing: "normal"
   small:
-    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
-    fontSize: "0.8125rem"
+    fontFamily: "Schibsted Grotesk, system-ui, sans-serif"
+    fontSize: "13px"
     fontWeight: 400
-    lineHeight: 1.5
+    lineHeight: 1.45
     letterSpacing: "normal"
-  eyebrow:
-    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
-    fontSize: "0.75rem"
+  figure:
+    fontFamily: "Spline Sans Mono, ui-monospace, monospace"
+    fontSize: "26px"
     fontWeight: 600
     lineHeight: 1
-    letterSpacing: "0.16em"
-  data:
-    fontFamily: "JetBrains Mono, ui-monospace, monospace"
-    fontSize: "0.8125rem"
-    fontWeight: 500
-    lineHeight: 1.1
     letterSpacing: "normal"
+  title-lg:
+    fontFamily: "Schibsted Grotesk, system-ui, sans-serif"
+    fontSize: "17px"
+    fontWeight: 700
+    lineHeight: 1.3
+    letterSpacing: "normal"
+  label:
+    fontFamily: "Schibsted Grotesk, system-ui, sans-serif"
+    fontSize: "14px"
+    fontWeight: 400
+    lineHeight: 1.45
+    letterSpacing: "normal"
+  figure-sm:
+    fontFamily: "Spline Sans Mono, ui-monospace, monospace"
+    fontSize: "22px"
+    fontWeight: 600
+    lineHeight: 1.2
+    letterSpacing: "normal"
+  data:
+    fontFamily: "Spline Sans Mono, ui-monospace, monospace"
+    fontSize: "12px"
+    fontWeight: 500
+    lineHeight: 1.4
+    letterSpacing: "normal"
+typeRamp: ["11px", "11.5px", "12px", "12.5px", "13px", "13.5px", "14px", "14.5px", "15px", "15.5px", "16px", "16.5px", "17px", "22px", "26px", "30px", "1.75rem"]
 rounded:
-  soft: "12px"
-  card: "18px"
-  xl2: "24px"
+  glyph: "2px"
+  tag: "7px"
+  control: "8px"
+  row: "9px"
+  button: "10px"
+  input: "14px"
+  surface: "16px"
+  plane: "28px"
   pill: "999px"
 spacing:
   xs: "4px"
   sm: "8px"
   md: "16px"
-  lg: "24px"
+  lg: "20px"
   xl: "40px"
 components:
   button-primary:
-    backgroundColor: "{colors.coral}"
-    textColor: "#2a0f0b"
-    rounded: "{rounded.pill}"
-    padding: "12px 24px"
-  card:
-    backgroundColor: "{colors.surface}"
+    backgroundColor: "{colors.acc}"
+    textColor: "{colors.bg}"
+    rounded: "{rounded.button}"
+    padding: "10px 16px"
+  step-card:
+    backgroundColor: "{colors.card}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.card}"
-    padding: "24px"
-  chip:
-    backgroundColor: "{colors.surface-2}"
-    textColor: "{colors.ink-2}"
-    rounded: "{rounded.pill}"
-    padding: "4px 10px"
+    rounded: "{rounded.surface}"
+    padding: "18px"
+  panel:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.surface}"
+    padding: "20px"
   input:
-    backgroundColor: "{colors.surface}"
+    backgroundColor: "{colors.card}"
     textColor: "{colors.ink}"
-    rounded: "20px"
-    padding: "12px 12px"
+    rounded: "{rounded.input}"
+    padding: "7px"
 ---
 
 # Design System: Multiplexer
 
 ## Overview
 
-**Creative North Star: "The Warm Product Story"**
+**North star: the product explains itself with its own cards.** Every routing step is a plainly titled card with real numbers. The homepage shows those cards three ways, in scroll order:
 
-Multiplexer is technical infrastructure - a learned LLM routing gateway - dressed as a warm, welcoming product a first-time visitor understands in thirty seconds. The surface is a soft, deep plum-charcoal lit by coral and rose glow pools, populated by rounded, lifted cards and fluid motion. Nothing here is cold or intimidating: the goal is that a recruiter or engineer immediately grasps *what it is, what to do, and what's happening behind the scenes* - then feels invited to press Try the demo.
+1. **Assemble (hero).** All eight step cards lie on one tilted dashboard plane beside the prompt box. Hovering or focusing a card lifts it off the plane; selecting it jumps to that step. As the hero scrolls away the plane tilts further and recedes.
+2. **Fly-through (story).** A sticky stage moves the camera forward through the eight cards along a lit route, one card in focus at a time, with the step list on the left. At the end the cards gather into a summary grid. The story uses the visitor's last request, or a sample labelled "Sample request".
+3. **Results and session.** Flat, readable panels: the live pipeline, the answer, the routing decision, cost/latency/cache/judge, prompt signals, then session metrics, traffic, shadow A/B, providers and history, with the Request Inspector drawer.
 
-The narrative is choreographed. The visitor lands on a bold Bricolage Grotesque wordmark and a single clear promise, sends a prompt, and watches a seven-step pipeline animate what the gateway is doing. Then the answer arrives ChatGPT-style, followed by a cascade of explainer cards - the routing decision (with confidence and alternatives), cost saved, latency breakdown, cache status - and a living dashboard of provider distribution, a learning bandit, history, and a failover demo. Color is used with meaning: coral carries the brand and primary actions, mint means money saved and health, amber highlights, and each model owns a distinct hue.
+The 3D is CSS 3D on real DOM, so every card stays sharp text, keyboard reachable and screen-reader readable. No WebGL, no 3D library.
 
-This world deliberately rejects both the cold "infrastructure dashboard" and the blank "enter prompt" ChatGPT clone. **Confirmed anti-references:** no gradient text, no hard measurement grids, no dense monospace-everything, no glassmorphism as decoration.
-
-**Key Characteristics:**
-- Soft deep plum-charcoal ground with coral/rose glow pooling from the top.
-- Rounded, lifted cards (18px radius) with soft warm shadows.
-- Bricolage Grotesque display, Hanken Grotesk body, JetBrains Mono for figures.
-- Motion everywhere, but purposeful: pipeline choreography, count-ups, bar growth, spring entrances.
-- Color as signal: coral = brand/action, mint = savings/health, per-model hues.
+**Deliberately unlike Christopher** (the owner's other product): Christopher is a light, warm, cool-paper world (teal, mustard, airmail red/blue), Bricolage Grotesque + Figtree + a handwritten face, pill buttons, a mascot, and a drifting cloud of tilted postcards. Multiplexer is a dark graphite control surface, Schibsted Grotesk + Spline Sans Mono, square-shouldered 8-16px radii, no character, and its 3D is ordered (a plane, a straight route, a grid), never a scattered cloud.
 
 ## Colors
 
-A warm dark palette: a plum-charcoal ground, cool-tinted neutrals, and a friendly accent family led by coral.
+Roughly 75% graphite neutrals, 20% text tones, 5% signal.
 
-### Primary
-- **Coral** (#FF7A6B): The brand and primary action - Send, Try the demo, the flagship model trace, wordmark accents, focus glows.
+- **Ground** `bg` #0D1015, `bg-2` #121821 (radial lift behind hero and story).
+- **Surfaces** `card` #161B23, `card-2` #1C232D (card top gradient), `inset` #0F1318 (tracks, inputs, code).
+- **Lines** `line` #27303C, `line-2` #343F4E.
+- **Text** `ink` #EDF1F6, `dim` #9AA5B4, `mute` #8591A2 (AA on `bg` and `card`).
+- **Route blue** `acc` #5B8CFF: the chosen model, the focused card, the primary action, the lit route. One accent only.
+- **State** `good` #34D399 (healthy, saved, hit), `warn` #F5B94A (miss, failover, simulated, learning), `bad` #F2605A (circuit open, errors). State colours never decorate.
 
-### Secondary
-- **Rose** (#FF6E9C): Coral's companion in glow gradients and as a model hue.
-- **Mint** (#3FE0A0): Money saved, cache hits, healthy/online states, positive deltas.
-- **Amber** (#FFC24B): Highlights, cache-hit-rate metric, a model hue.
-- **Danger** (#FF5C6A): Offline providers and failure states only.
-
-### Tertiary (model hues)
-- **Sky** (#5CC8FF), **Violet** (#A78BFA): Per-model trace colors alongside coral/rose/mint/amber, so each model is identifiable across chat, decision, distribution, and history.
-
-### Neutral
-- **BG Plum-Charcoal** (#141019): Page ground.
-- **Surface / Surface-2 / Surface-3** (#1E1727 / #261E32 / #30273D): Card and inset layers.
-- **Border / Border-soft** (#352B44 / #2A2235): Hairline edges and dividers.
-- **Ink** (#F6F0FA) primary text · **Ink-2** (#C3B7D2) secondary · **Ink-3** (#948AA6) labels · **Ink-4** (#6E6483) captions/placeholders. All tinted warm, never flat gray.
-
-### Named Rules
-**The Meaningful-Color Rule.** Coral is action, mint is savings/health, danger is failure, and every other saturated hue identifies a specific model. A color on this surface always means something.
+Tokens live once as CSS variables in `app/globals.css`, mapped into Tailwind in `tailwind.config.ts`. Components use tokens, never raw hex. (`lib/models.ts` still carries per-model `color` values; the UI does not use them.)
 
 ## Typography
 
-**Display Font:** Bricolage Grotesque (with system-ui)
-**Body Font:** Hanken Grotesk (with system-ui)
-**Figure Font:** JetBrains Mono (with ui-monospace)
-
-**Character:** Bricolage Grotesque brings warm, slightly quirky confidence to headings; Hanken Grotesk keeps body text friendly and highly legible; JetBrains Mono makes every number (cost, latency, confidence, share) precise and tabular.
-
-### Hierarchy
-- **Display** (Bricolage 800, clamp(3.5rem, 9vw, 6rem), tracking -0.035em): The hero wordmark.
-- **Headline** (Bricolage 700, clamp(1.5rem, 3vw, 2rem)): Section leads and big metrics.
-- **Title** (Bricolage 700, ~15px): Card headers, selected-model name.
-- **Body** (Hanken 400, ~15px, lh 1.6): Prose, chat, descriptions.
-- **Small / Caption** (Hanken, 13px / 12px): Secondary rows, helper text.
-- **Eyebrow** (Hanken 600, 12px, tracking 0.16em, UPPERCASE): Card and section labels.
-- **Data** (JetBrains Mono 500, tabular-nums, 11-28px): All numeric readouts.
-
-### Named Rules
-**The Tabular-Figures Rule.** Every number uses JetBrains Mono with tabular-nums so values line up and count-up animations don't jitter.
+- **Archivo** (variable width, set at 112%) for headings only: the hero line, section titles and the wordmark (`.font-display`). Slightly wide and firm, it reads engineered, not friendly.
+- **Schibsted Grotesk** for everything else written: a newspaper-grotesque with firm, slightly condensed caps that reads as engineered rather than friendly.
+- **Spline Sans Mono** for figures only (scores, costs, latencies, step numbers), always `tabular-nums`, so numbers align and don't jitter as they change. It is not used for prose or labels.
+- Ramp (px): 11 / 11.5 / 12 / 12.5 / 13 / 13.5 / 14 / 14.5 / 15 / 15.5 / 16 / 16.5 / 17 / 22 / 26 / 30, section heads 1.75rem, hero `clamp(2.1rem, 3.9vw, 3.25rem)` at 800 with -0.035em tracking. The half steps are for dense data rows (12.5, 13.5) and card titles (15.5).
+- No uppercase eyebrows, no tracked labels, no accent-coloured words in headlines.
 
 ## Layout
 
-A single centered column (`max-w-5xl`) of stacked sections with generous vertical rhythm. The hero is centered and airy; the prompt box sits just below it. Interaction unfolds in place: the pipeline animation, then the chat answer, then a full-width Routing Decision with Cost + Latency balanced beneath it, then the always-on dashboard (Live Metrics tiles, then two-column Provider Distribution + Bandit, then History + Failure Resilience). Grids collapse to a single column below `lg`; metric tiles go 2-up on mobile. Horizontal overflow is clipped at the body so the inspector drawer never widens the page.
-
-## Elevation & Depth
-
-Soft and lifted. Cards use a subtle inner top-highlight plus a large, soft, warm-black drop shadow, over a plum ground washed with coral/rose radial glows. Primary actions carry a colored glow (coral). **No glassmorphism as decoration**; the only blur is a functional scrim behind the inspector drawer.
-
-### Shadow Vocabulary
-- **card** (`0 1px 0 rgba(255,255,255,0.045) inset, 0 24px 60px -30px rgba(0,0,0,0.75)`): Default resting card depth.
-- **lift** (`0 1px 0 rgba(255,255,255,0.06) inset, 0 32px 70px -28px rgba(0,0,0,0.85)`): Prompt box and inspector drawer.
-- **glow-coral** (`0 0 50px -12px rgba(255,122,107,0.45)`) / **glow-mint**: Reserved for the primary action and celebratory states.
+- **Hero**: two columns on desktop (500px copy column + the plane), one column under 1000px with the plane below the controls. The prompt box, example prompts and the "What matters most?" objective controls (three sliders plus Balanced / Best quality / Cheapest / Fastest) are all in the first viewport.
+- **Story**: 950vh scroll container with a sticky 100svh stage. Desktop: 400px step list left, scene right. Mobile: full-width scene, a caption bar with progress segments at the bottom.
+- **Results/session**: max 1200px. Hierarchy comes from container type, not a card wall: a *step card* is an object you can pick up (gradient, shadow); a *panel* is a region (flat card fill); a *strip* is one object with several readings separated by hairlines (cost/latency/cache/judge; session metrics); tables carry the provider and history lists.
 
 ## Shapes
 
-Soft and rounded. Cards 18px, larger containers 24px, insets 12px, and fully-round pills (999px) for chips, buttons, bars, and toggles. Borders are 1px in border/border-soft. Recurring motifs: pill chips, rounded progress/gauge bars, the circular confidence ring, and small colored dots identifying models.
+Radii by role: tier glyph squares 2px, tags 7px, controls 8px, list rows 9px, buttons 10px, prompt box 14px, cards and panels 16px, the hero plane 28px, pills only for chips and switches. Model identity uses **shape for tier plus the label**: triangle = flagship, square = mid, circle = efficient; the chosen model's shape turns route blue. Colour alone never identifies a model.
+
+## Motion
+
+Motion answers scroll position, user input or new data. Nothing loops.
+
+| Trigger | What moves | Easing / duration |
+|---|---|---|
+| Hero scroll | plane tilts 54→72°, recedes 700px, fades | scroll-linked, rAF |
+| Card hover/focus on plane | card lifts 46px on Z | `--ease` 350ms |
+| Story scroll | camera Z through cards 1150px apart; cards ahead blur and fade; focused card squares up | scroll-linked with 0.14 smoothing |
+| Story end | cards gather into a 4x2 grid | scroll-linked |
+| New data | bars rescale (`transform: scaleX`), confidence ring stroke | `--ease` 500-600ms |
+| Routing | pipeline steps advance; "Call model" holds until the real answer streams back | server-driven |
+| Routing from the hero | plane cards light up in step with the real pipeline (running card lifts 70px and glows, done cards go green, skipped cards dim). The page never scrolls on its own: an outcome panel under the prompt ("Routed to X in 1.4s, 85% cheaper") offers Walk me through it (primary on the first prompt in a tab) or Jump to results (primary after that) | server-driven |
+| Pointer over a story card | card tilts up to 4deg toward the pointer with a soft highlight (fine pointers only) | `--ease` 250ms |
+| A figure changes | number glides from old to new value (`Num`) | ease-out cubic 500ms |
+| Answer arrives | answer fades up 6px | `--ease` 400ms, once |
+| Streaming | a static caret block follows the text and disappears when done | n/a |
+| Inspector | drawer slides in | 300ms |
+
+`--ease` is `cubic-bezier(0.2, 0.8, 0.2, 1)`. Under `prefers-reduced-motion` the story becomes a static stepped list (text + card per step), the plane stays still, and transitions collapse to instant.
 
 ## Components
 
-### Buttons
-- **Shape:** fully-round pill (999px), or 20px for the boxed Send.
-- **Primary** (Send, Try the demo): coral fill, dark text (#2a0f0b), coral glow shadow, 12×24px padding.
-- **Hover / Active:** `brightness(1.1)`; `whileTap` scale 0.94-0.95 via Framer Motion; disabled is opacity-40, no glow.
+- **StepCard** (`components/StepCard.tsx`): the unit of the whole page. Eight variants, one per step, driven by a `RequestRecord`. In the story the focused card is interactive; others are `inert`. Interactions are real: "Send it again to get a cache hit" re-sends the prompt; preset buttons re-route with those weights; switches take providers offline through `/api/provider`; the judge's reasoning expands.
+- **Pipeline strip**: eight states (waiting, running, done, skipped, failed), announced through an `aria-live` status line.
+- **Routing decision**: confidence ring, why this model, alternatives with $/$$/$$$ tiers, failover pill.
+- **Strip**: several readings in one bordered object with hairline dividers.
+- **Providers table**: health, breaker state from `/api/state` and the stream's final state, picks, quality, drift, price, and an online switch per model (the failover demo).
+- **Num** (`components/Num.tsx`): figures that glide to new values; screen readers get the final value only.
+- **Reward chart**: reward per routed request with a 5-request rolling average, endpoint labelled.
+- **Placeholders**: `.skeleton` blocks shaped like the real panels show until the saved session is read, so nothing jumps; they never shimmer.
+- **Provider status**: only an open circuit gets a coloured pill; healthy, recovering, recent failure and switched off are a quiet dot plus text.
+- **Request Inspector**: `role="dialog"` drawer, Esc closes, focus returns to the row that opened it.
 
-### Chips
-- **Style:** surface-2 fill, 1px border-soft, pill radius, Hanken 12-13px; reason chips add a mint check and mint-tinted border.
+## Honesty rules (from PRODUCT.md)
 
-### Cards
-- **Corner Style:** 18px (`.card`).
-- **Background:** surface at ~80% over the glow ground, with a light backdrop-blur.
-- **Shadow:** `card` (see Elevation). **Border:** 1px border-soft.
-- **Header:** a rounded-square accent-tinted icon tile + Bricolage title.
+- Before a visitor routes anything, the story uses `SAMPLE` in `components/routing.ts` and says "Sample request, illustrative numbers" wherever it appears.
+- Answers without an API key are labelled "Simulated response".
+- Prices are labelled reference prices; the roster is free-tier.
+- The feature bars recompute the context vector with a display-only mirror of `featurize()` (routing never uses it); keep the two in sync.
 
-### Inputs
-- **Style:** the prompt box is a 20px-radius surface panel with a soft coral gradient glow behind it that intensifies on focus; text in Hanken 15px.
+## Do / Don't
 
-### Signature Components
-- **Pipeline** - a seven-step vertical stepper (Request received → … → Response received) that auto-advances and gates its final steps on the real response; steps complete with a spring-scaled mint check, and a cache hit celebrates and short-circuits.
-- **Routing Decision** - selected model, an animated circular confidence ring, mint "why" reason chips, and an alternatives list with quality bars + $/$$/$$$ cost tiers.
-- **Confidence Ring** - an SVG ring animating its stroke to the confidence value with a count-up center number.
-- **Bandit Viz** - an exploration/exploitation split bar plus per-model traffic-share bars that re-animate as the numbers move.
-- **Request Inspector** - a spring-in right drawer showing the full lifecycle: prompt → features → complexity → candidates → cache → provider → cost → answer.
-
-## Do's and Don'ts
-
-### Do:
-- **Do** give color meaning (coral=action, mint=savings/health, danger=failure, other hues=models).
-- **Do** render every number in JetBrains Mono with tabular-nums, and animate value changes with count-ups.
-- **Do** keep motion purposeful - pipeline choreography, spring entrances, bar growth - and honor `prefers-reduced-motion`.
-- **Do** keep the story legible: what it is, what to do, what's happening, within seconds.
-- **Do** disclose the demo honestly - free-tier models, reference prices, simulated responses without a key.
-
-### Don't:
-- **Don't** use gradient text, hard measurement grids, glassmorphism decoration, or dense monospace-as-costume.
-- **Don't** make the hero or key content depend on JS to be legible where it can be avoided; keep entrances short.
-- **Don't** let a card's expression bury its number - the metric is the point.
-- **Don't** use pure gray for text; tint neutrals warm toward the plum ground.
+- **Do** keep one accent and use state colours only for state.
+- **Do** put numbers in Spline Sans Mono with tabular figures, and animate changes with transforms.
+- **Do** keep every card's content as real DOM text.
+- **Don't** add glow blobs, gradient text, glassmorphism, looping animations, uppercase eyebrows, or icon tiles on headers.
+- **Don't** give every container the same card treatment; choose step card, panel, strip or table by role.
