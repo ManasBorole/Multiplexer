@@ -37,7 +37,6 @@ export async function fetchWithKeyRotation(
   let last: Response | null = null;
   for (let i = 0; i < KEYS.length; i++) {
     const idx = (cursor + i) % KEYS.length;
-    // eslint-disable-next-line no-await-in-loop
     const res = await makeRequest(KEYS[idx]);
     if (res.status !== 429) {
       cursor = idx; // stick to the key that worked

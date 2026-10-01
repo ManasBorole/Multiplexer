@@ -52,3 +52,15 @@ export function recordFailure(id: string, now: number): void {
 export function breakerFails(id: string): number {
   return get(id).fails;
 }
+
+/** Serializable breaker state, for persistence across instances. */
+export function snapshotBreakers(): Record<string, Breaker> {
+  return Object.fromEntries(breakers());
+}
+
+export function restoreBreakers(data: Record<string, Breaker> | undefined): void {
+  if (!data) return;
+  const b = breakers();
+  b.clear();
+  for (const [id, v] of Object.entries(data)) b.set(id, { fails: v.fails ?? 0, openedAt: v.openedAt ?? 0 });
+}

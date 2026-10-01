@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { setOffline } from "@/lib/store";
 import { MODEL_BY_ID } from "@/lib/models";
 import { computeState } from "@/lib/state";
+import { hydrate, persist } from "@/lib/persist";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,9 @@ export async function POST(req: Request) {
   if (!MODEL_BY_ID.has(modelId)) {
     return NextResponse.json({ error: "Unknown model." }, { status: 422 });
   }
+  await hydrate();
   setOffline(modelId, !!body.offline);
+  await persist();
   return NextResponse.json(
     { state: computeState() },
     { headers: { "Cache-Control": "no-store" } },

@@ -3,7 +3,7 @@
 import type { CircuitState, RequestRecord, Weights } from "@/lib/types";
 import { usd, ms, pct } from "@/lib/format";
 import {
-  CACHE_THRESHOLD,
+  cacheThresholdOf,
   PRESETS,
   STEPS,
   chosenOf,
@@ -134,12 +134,12 @@ export default function StepCard({
     const hit = r.cached;
     body = (
       <>
-        <p className="lead">Closest past prompt, by meaning.</p>
-        <div className="relative mt-1 h-[42px]" role="img" aria-label={`Similarity ${r.similarity.toFixed(2)}, a hit needs ${CACHE_THRESHOLD}`}>
+        <p className="lead">Closest past prompt, {r.cacheMode === "lexical" ? "by wording" : "by meaning"}.</p>
+        <div className="relative mt-1 h-[42px]" role="img" aria-label={`Similarity ${r.similarity.toFixed(2)}, a hit needs ${cacheThresholdOf(r)}`}>
           <span className="absolute inset-x-0 top-4 h-2 rounded-full bg-inset" />
-          <span className="absolute bottom-0.5 top-1.5 w-0.5 bg-good" style={{ left: `${CACHE_THRESHOLD * 100}%` }}>
+          <span className="absolute bottom-0.5 top-1.5 w-0.5 bg-good" style={{ left: `${cacheThresholdOf(r) * 100}%` }}>
             <b className="num absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11.5px] font-semibold text-good">
-              hit at {CACHE_THRESHOLD}
+              hit at {cacheThresholdOf(r)}
             </b>
           </span>
           <span
@@ -154,7 +154,9 @@ export default function StepCard({
         {hit ? (
           <span className="pill pill-good">Hit: saved answer in {ms(r.latencyMs)}, $0</span>
         ) : (
-          <span className="pill pill-warn">No match, keep going</span>
+          <span className="pill pill-warn">
+            {r.similarity >= cacheThresholdOf(r) ? "Skipped: re-routed on purpose" : "No match, keep going"}
+          </span>
         )}
         <button
           type="button"

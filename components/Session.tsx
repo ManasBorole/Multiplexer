@@ -14,8 +14,10 @@ export default function Session({
   onToggle,
   onInspect,
   ready,
+  measured,
 }: {
   ready: boolean;
+  measured?: GatewayState["measured"];
   state: GatewayState;
   circuits: Record<string, CircuitState | undefined>;
   onToggle: (modelId: string, off: boolean) => void;
@@ -129,11 +131,12 @@ export default function Session({
                     </span>
                   </div>
                 ))}
-                <p className="lead">Every routed prompt is also priced as if it went to the flagship or a random model.</p>
+                <p className="lead">Estimated for your session: each routed prompt is priced as if it went to the flagship or a random model, using their usual quality.</p>
               </div>
             ) : (
               <p className="lead">Each routed prompt is also scored as if it went to the flagship or a random model, so you can compare spend and quality here.</p>
             )}
+            {measured && measured.bandit.count > 0 && <Measured m={measured} />}
           </div>
         </div>
 
@@ -290,6 +293,33 @@ function RewardChart({ history }: { history: RequestRecord[] }) {
           <p className="lead">Reward mixes quality, cost and speed under the weights you chose. It also depends on which prompts you send, so the line can dip.</p>
         </>
       )}
+    </div>
+  );
+}
+
+/** Real shadow calls on a 1-in-10 sample: all three policies answered the same prompts. */
+function Measured({ m }: { m: NonNullable<GatewayState["measured"]> }) {
+  const rows = [
+    { k: "Multiplexer (live)", s: m.bandit, tone: "acc" as const },
+    { k: "Always flagship", s: m.static, tone: "dim" as const },
+    { k: "Random model", s: m.random, tone: "dim" as const },
+  ];
+  const max = Math.max(...rows.map((r) => r.s.spendUsd), 1e-9);
+  return (
+    <div className="grid gap-2.5 border-t border-line pt-3">
+      <p className="text-[13px] font-semibold">
+        Measured on {m.bandit.count} sampled prompt{m.bandit.count === 1 ? "" : "s"}
+        <span className="font-normal text-mute"> (real calls, all visitors)</span>
+      </p>
+      {rows.map((r) => (
+        <div key={r.k} className="grid grid-cols-[140px_1fr_76px] items-center gap-2.5 text-[13px] text-dim">
+          <span>{r.k}</span>
+          <Bar v={r.s.spendUsd / max} tone={r.tone} />
+          <span className="num text-right text-xs text-ink">
+            {usd(r.s.spendUsd)} · q {(r.s.qualitySum / r.s.count).toFixed(2)}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

@@ -49,7 +49,7 @@ async function judgeReal(
         headers: {
           Authorization: `Bearer ${key}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://multiplexer.dev",
+          "HTTP-Referer": "https://multiplexer-routes.vercel.app",
           "X-Title": "Multiplexer",
         },
         body: JSON.stringify({

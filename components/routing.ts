@@ -23,7 +23,7 @@ export const SUGGESTIONS = [
 export const STEPS: { name: string; tech: string; desc: string }[] = [
   { name: "Your prompt comes in", tech: "Request", desc: "You type a prompt and say what matters most: quality, cost or speed." },
   { name: "It reads the prompt", tech: "Featurization", desc: "The prompt becomes 9 simple signals, like its length and whether it is about code." },
-  { name: "It checks for a saved answer", tech: "Semantic cache", desc: "If a near-identical prompt was answered before, that answer comes back instantly and nothing else runs." },
+  { name: "It checks for a saved answer", tech: "Semantic cache", desc: "If a prompt with the same meaning was answered before, that answer comes back instantly and nothing else runs." },
   { name: "It scores every model", tech: "LinUCB contextual bandit", desc: "Each model gets a score: how well it has done on prompts like this, plus a bonus for models it has not tried much yet." },
   { name: "It skips broken providers", tech: "Circuit breaker", desc: "Providers that keep failing, or that you switch off, are skipped automatically, so your request never waits on them." },
   { name: "It calls the best model", tech: "Provider call", desc: "The top healthy model answers through OpenRouter, and the answer streams back." },
@@ -31,7 +31,8 @@ export const STEPS: { name: string; tech: string; desc: string }[] = [
   { name: "It learns from the result", tech: "Reward update", desc: "The result updates the chosen model's score, so the next prompt like this is routed with more confidence." },
 ];
 
-export const CACHE_THRESHOLD = 0.86; // lib/cache.ts THRESHOLD
+/** Threshold a record's cache lookup used (lib/cache.ts); older records default to lexical. */
+export const cacheThresholdOf = (r: { cacheThreshold?: number }) => r.cacheThreshold ?? 0.86;
 
 export const model = (id: string): ModelDef => MODEL_BY_ID.get(id) ?? MODELS[0];
 export const tierShape = (m: ModelDef) => `shape shape-${m.tier}`;
@@ -74,8 +75,23 @@ export function featureVector(prompt: string, w: Weights) {
   ];
 }
 
-export const failoverOf = (r: RequestRecord) =>
-  r.stages.find((s) => s.key === "failover" || (s.key === "call" && s.status === "fail")) ?? null;
+/** The whole failover chain in one line, e.g. "X switched off, Y errored; answered by Z". */
+export function failoverOf(r: RequestRecord): { detail: string } | null {
+  const parts: string[] = [];
+  for (const s of r.stages) {
+    if (s.key === "failover") parts.push(`${s.detail.split(" offline")[0]} switched off`);
+    if (s.key === "call" && s.status === "fail") parts.push(`${s.label.replace(/^Call /, "")} errored`);
+  }
+  return parts.length ? { detail: `${parts.join(", ")}; answered by ${model(r.modelId).label}` } : null;
+}
+
+/** When the bandit picked something other than the top score, it was exploring. */
+export function explorationNote(r: RequestRecord): string | null {
+  const top = r.candidates[0];
+  const pick = chosenOf(r);
+  if (r.cached || !top || !pick || pick.modelId === top.modelId) return null;
+  return `Exploring: tried ${model(pick.modelId).label} to learn how it does (top score was ${model(top.modelId).label})`;
+}
 
 export const chosenOf = (r: RequestRecord): Candidate | undefined =>
   r.candidates.find((c) => c.chosen);
@@ -107,7 +123,9 @@ export const SAMPLE: RequestRecord = {
   prompt: SUGGESTIONS[0],
   modelId: id("Gemma 4 31B"),
   cached: false,
-  similarity: 0.41,
+  similarity: 0.71,
+  cacheThreshold: 0.92,
+  cacheMode: "semantic",
   failed: false,
   costUsd: 0.00031,
   baselineUsd: 0.0021,
@@ -129,8 +147,8 @@ export const SAMPLE: RequestRecord = {
   })).sort((a, b) => b.score - a.score),
   stages: [
     { key: "ingest", label: "Ingest", detail: "57 chars, difficulty 38%", ms: 1, status: "ok" },
-    { key: "embed", label: "Embed", detail: "256-d semantic key", ms: 3, status: "ok" },
-    { key: "cache", label: "Semantic cache", detail: "miss, nearest 41.0%", ms: 2, status: "skip" },
+    { key: "embed", label: "Cache lookup", detail: "text-embedding-3-small via Upstash Vector", ms: 140, status: "ok" },
+    { key: "cache", label: "Semantic cache", detail: "miss, nearest 71.0%", ms: 2, status: "skip" },
     { key: "select", label: "Bandit select", detail: "12 models scored, Gemma 4 31B (UCB 0.710)", ms: 2, status: "ok" },
     { key: "respond", label: "Response", detail: "318 tok, 1112 ms, $0.00031", ms: 1112, status: "ok" },
     { key: "judge", label: "LLM-as-Judge", detail: "quality 82%", ms: 140, status: "ok" },

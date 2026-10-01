@@ -8,6 +8,7 @@ export function usd(n: number, dp = 4): string {
 
 export function ms(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(2)}s`;
+  if (n > 0 && n < 10) return `${n.toFixed(1)}ms`;
   return `${Math.round(n)}ms`;
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CircuitState, FleetStat, RequestRecord, Weights } from "@/lib/types";
+import type { CircuitState, FleetStat, GatewayState, RequestRecord, Weights } from "@/lib/types";
 import { deriveState } from "@/lib/session";
 import Hero from "./Hero";
 import Story, { storyTop } from "./Story";
@@ -43,6 +43,7 @@ export default function App() {
   const [error, setError] = useState<RunError | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [heroDone, setHeroDone] = useState(false);
+  const [measured, setMeasured] = useState<GatewayState["measured"]>(undefined);
   const [circuits, setCircuits] = useState<Record<string, CircuitState | undefined>>({});
   useTilt();
 
@@ -51,7 +52,8 @@ export default function App() {
   weightsRef.current = weights;
   const lastAttempt = useRef<{ text: string; w: Weights; skipCache: boolean } | null>(null);
 
-  const takeCircuits = (fleet?: FleetStat[]) => {
+  const takeCircuits = (fleet?: FleetStat[], m?: GatewayState["measured"]) => {
+    if (m) setMeasured(m);
     if (!Array.isArray(fleet)) return;
     setCircuits(Object.fromEntries(fleet.map((f) => [f.modelId, f.circuit])));
   };
@@ -77,7 +79,7 @@ export default function App() {
     setHydrated(true);
     fetch("/api/state", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((s) => s && takeCircuits(s.fleet))
+      .then((s) => s && takeCircuits(s.fleet, s.measured))
       .catch(() => {});
   }, []);
 
@@ -158,7 +160,7 @@ export default function App() {
               setStreamText(acc);
             } else if (msg.type === "done") {
               rec = msg.record ?? null;
-              takeCircuits(msg.state?.fleet);
+              takeCircuits(msg.state?.fleet, msg.state?.measured);
             } else if (msg.type === "error") {
               streamErr = msg.error ?? "Routing failed.";
             }
@@ -320,7 +322,7 @@ export default function App() {
           onRetry={() => lastAttempt.current && submit(lastAttempt.current.text, lastAttempt.current.w, { skipCache: lastAttempt.current.skipCache })}
           onWrite={focusPrompt}
         />
-        <Session ready={hydrated} state={state} circuits={circuits} onToggle={toggleProvider} onInspect={setSelectedId} />
+        <Session ready={hydrated} measured={measured} state={state} circuits={circuits} onToggle={toggleProvider} onInspect={setSelectedId} />
       </main>
 
       <footer className="border-t border-line px-4 py-8 text-center text-[13px] text-mute">

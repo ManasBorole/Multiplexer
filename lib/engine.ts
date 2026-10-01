@@ -1,7 +1,8 @@
 import { MODELS, MODEL_BY_ID, FLAGSHIP } from "./models";
 import { FEATURE_DIM, scoreArm, updateArm } from "./bandit";
-import { embed, lookup, remember } from "./cache";
-import { store, armStats, pushHistory, recordAB } from "./store";
+import { lookup, remember } from "./cache";
+import { store, armStats, pushHistory, recordAB, recordMeasured } from "./store";
+import { hydrate, persist } from "./persist";
 import { judge } from "./judge";
 import { circuitAllows, recordFailure, recordSuccess } from "./circuit";
 import { staticPick, randomPick, estCost } from "./policies";
@@ -16,6 +17,9 @@ import type {
 
 const ALPHA = 0.68; // UCB exploration width
 const DECAY = 0.995; // <1 → discounted LinUCB: gently adapts to drift/health
+// Share of real-key requests also run through the baselines (MUX_SHADOW_SAMPLE overrides, for testing).
+const SHADOW_SAMPLE = Number(process.env.MUX_SHADOW_SAMPLE ?? 0.1);
+const SITE = "https://multiplexer-routes.vercel.app";
 
 let seq = 0;
 const rid = () =>
@@ -144,17 +148,19 @@ export function confidenceOf(candidates: Candidate[]): number {
   return clamp(0.55 + p * 0.44, 0.55, 0.99);
 }
 
+/** Measured stage timings (ms, 0.1 precision): features + cache lookup, bandit, provider. */
 function latencyFrom(
-  stages: Stage[],
+  featureMs: number,
+  banditMs: number,
   providerMs: number,
 ): { featureMs: number; banditMs: number; providerMs: number; totalMs: number } {
-  // The local hashed embedding + in-process bandit are sub-millisecond, so we
-  // report representative stage costs a real deployment sees (embedding model +
-  // decision), while the provider time below is always the real measured value.
-  const featureMs = 14 + Math.round(Math.random() * 16);
-  const banditMs = 2 + Math.round(Math.random() * 4);
-  const pMs = Math.round(providerMs);
-  return { featureMs, banditMs, providerMs: pMs, totalMs: featureMs + banditMs + pMs };
+  const r = (n: number) => Math.round(n * 10) / 10;
+  return {
+    featureMs: r(featureMs),
+    banditMs: r(banditMs),
+    providerMs: r(providerMs),
+    totalMs: r(featureMs + banditMs + providerMs),
+  };
 }
 
 // ── Joint objective ─────────────────────────────────────────────────────────
@@ -255,13 +261,16 @@ async function realCall(
         headers: {
           Authorization: `Bearer ${key}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://multiplexer.dev",
+          "HTTP-Referer": SITE,
           "X-Title": "Multiplexer",
         },
         body: JSON.stringify({
           model: model.id,
           messages: [{ role: "user", content: prompt }],
-          max_tokens: 640,
+          // Some free models reason before answering; keep that short and out of
+          // the reply, and leave room for the answer itself.
+          max_tokens: 1500,
+          reasoning: { effort: "low", exclude: true },
           stream: true,
           stream_options: { include_usage: true },
         }),
@@ -305,12 +314,15 @@ async function realCall(
       }
     }
 
+    // A reply with no text is a failed call, so the router fails over.
+    if (!text.trim()) throw new Error("empty completion");
+
     const tokensIn = usageIn || estTokens(prompt.length);
     const tokensOut = usageOut || estTokens(text.length);
     const cost = (tokensIn * model.priceIn + tokensOut * model.priceOut) / 1e6;
     const baseline =
       (tokensIn * FLAGSHIP.priceIn + tokensOut * FLAGSHIP.priceOut) / 1e6;
-    // Quality of a real response is a heuristic proxy (no judge model wired).
+    // Starting quality estimate only; the judge (handleRequest) replaces it with a real score.
     const quality = clamp(
       model.qualityPrior * (0.9 + Math.min(0.1, text.length / 6000)),
       0.34,
@@ -349,11 +361,6 @@ async function callModel(
   onToken?: (t: string) => void,
 ): Promise<CallResult> {
   if (HAS_KEY) return realCall(model, prompt, onToken);
-  // small simulated outage so failure handling is visible on the instrument
-  if (Math.random() < 0.045) {
-    const partial = simulateCall(model, prompt, difficulty);
-    return { ...partial, failed: true, response: "", quality: 0 };
-  }
   const result = simulateCall(model, prompt, difficulty);
   // Keep the streaming contract uniform without faking latency: the simulated
   // answer is already computed, so emit it as a single chunk.
@@ -366,12 +373,19 @@ export async function handleRequest(
   prompt: string,
   weights?: Weights,
   onToken?: (t: string) => void,
-  opts: { skipCache?: boolean } = {},
+  opts: {
+    skipCache?: boolean;
+    /** Run work after the response is sent (Next's after()); runs inline if absent. */
+    defer?: (task: () => Promise<void>) => void;
+  } = {},
 ): Promise<RequestRecord> {
+  const later = opts.defer ?? ((task: () => Promise<void>) => void task().catch(() => {}));
+  const tStart = performance.now();
   const s = store();
   if (weights) s.weights = weights;
   const w = s.weights;
   const { x, difficulty, signals } = featurize(prompt, w);
+  const featureMs = performance.now() - tStart;
   const language = detectLanguage(prompt);
   const reasons = explain(difficulty, signals);
   const stages: Stage[] = [];
@@ -385,15 +399,18 @@ export async function handleRequest(
     status: "ok",
   });
 
-  // Semantic cache
-  const tEmbed = Date.now();
-  const vec = embed(prompt);
-  const hit = lookup(vec);
+  // Similarity cache (semantic via Upstash Vector, lexical fallback)
+  const tCache = performance.now();
+  const hit = await lookup(prompt);
+  const cacheMs = performance.now() - tCache;
   stages.push({
     key: "embed",
-    label: "Embed",
-    detail: "256-d semantic key",
-    ms: Date.now() - tEmbed,
+    label: "Cache lookup",
+    detail:
+      hit.mode === "semantic"
+        ? "text-embedding-3-small via Upstash Vector"
+        : "256-d trigram vector (lexical fallback)",
+    ms: Math.round(cacheMs * 10) / 10,
     status: "ok",
   });
 
@@ -401,7 +418,7 @@ export async function handleRequest(
   if (!opts.skipCache && hit.hit && hit.entry) {
     stages.push({
       key: "cache",
-      label: "Semantic cache",
+      label: "Similarity cache",
       detail: `hit · ${(hit.similarity * 100).toFixed(1)}% match → ${
         MODEL_BY_ID.get(hit.entry.modelId)?.label ?? hit.entry.modelId
       }`,
@@ -421,7 +438,7 @@ export async function handleRequest(
         (estTokens(prompt.length) * FLAGSHIP.priceIn +
           260 * FLAGSHIP.priceOut) /
         1e6,
-      latencyMs: 2 + Math.round(Math.random() * 6),
+      latencyMs: Math.round((performance.now() - tStart) * 10) / 10,
       quality: 0,
       reward: 1,
       tokensIn: 0,
@@ -429,7 +446,9 @@ export async function handleRequest(
       difficulty,
       confidence: 1,
       reasons,
-      latency: latencyFrom(stages, 0),
+      latency: latencyFrom(featureMs + cacheMs, 0, 0),
+      cacheThreshold: hit.threshold,
+      cacheMode: hit.mode,
       candidates: [],
       stages,
       response: hit.entry.response,
@@ -441,7 +460,7 @@ export async function handleRequest(
   }
   stages.push({
     key: "cache",
-    label: "Semantic cache",
+    label: "Similarity cache",
     detail: opts.skipCache
       ? `bypassed for re-route · nearest ${(hit.similarity * 100).toFixed(1)}%`
       : `miss · nearest ${(hit.similarity * 100).toFixed(1)}%`,
@@ -451,6 +470,7 @@ export async function handleRequest(
 
   // Bandit selection
   const tSel = Date.now();
+  const tSelP = performance.now();
   const argmax = <T extends { score: number }>(arr: T[]) =>
     arr.reduce((a, b) => {
       if (b.score > a.score + 1e-9) return b;
@@ -507,6 +527,7 @@ export async function handleRequest(
     ms: Date.now() - tSel,
     status: "ok",
   });
+  const banditMs = performance.now() - tSelP;
 
   // Call, failing over through every healthy provider (cheapest-first) until
   // one answers - so a single rate-limited or down provider never drops a
@@ -532,7 +553,6 @@ export async function handleRequest(
       .sort((a, b) => a.priceOut - b.priceOut);
     for (const fb of fallbacks) {
       chosen = fb;
-      // eslint-disable-next-line no-await-in-loop
       const retry = await callModel(fb, prompt, difficulty);
       totalMs += retry.latencyMs;
       call = { ...retry, latencyMs: totalMs };
@@ -555,7 +575,7 @@ export async function handleRequest(
       call = {
         ...sim,
         response:
-          "Demo answer - every live provider is rate-limited right now (OpenRouter free tier is 50 requests/day). Add credits at openrouter.ai/credits to restore real completions. The routing decision, cost, and latency above are still real.",
+          "Every live provider is rate-limited right now (OpenRouter's free tier allows 50 requests a day per key), so this is a simulated answer. The routing decision is real; the cost and latency shown for this answer are simulated estimates.",
       };
       failed = false;
     }
@@ -593,8 +613,12 @@ export async function handleRequest(
     status: call.failed ? "warn" : "ok",
   });
 
-  // Update bandit + stats (only when the call resolved)
-  if (!call.failed) {
+  // With a real key, a simulated stand-in (every provider was rate-limited) is
+  // shown to the user but never learned from or cached.
+  const learnable = !call.failed && !(HAS_KEY && call.simulated);
+
+  // Update bandit + stats (only when a real outcome came back)
+  if (learnable) {
     const a = armStats(chosen.id);
     updateArm(a.arm, x, r, DECAY);
     a.picks += 1;
@@ -605,7 +629,18 @@ export async function handleRequest(
     a.rewardN += 1;
     a.healthy = true;
     recordSuccess(chosen.id);
-    remember(vec, prompt, call.response, chosen.id);
+    const answer = call.response;
+    const servedBy = chosen.id;
+    later(() => remember(prompt, answer, servedBy));
+  }
+
+  // Measured shadow A/B: on a 1-in-10 sample (real-key mode only) the same
+  // prompt also runs through the always-flagship and random policies, after the
+  // response has been sent. Their real cost and judged quality are tallied.
+  if (HAS_KEY && !call.failed && !call.simulated && Math.random() < SHADOW_SAMPLE) {
+    const banditSample = { spendUsd: call.costUsd, quality: qual };
+    const served = chosen;
+    later(() => runShadow(prompt, served, banditSample));
   }
 
   // Shadow mode: what the static (always-flagship) and random policies WOULD have
@@ -613,7 +648,7 @@ export async function handleRequest(
   // live bandit can be compared against both on cost + quality.
   const sPick = staticPick();
   const rPick = randomPick(prompt.length + call.tokensOut + Date.now());
-  if (!call.failed) {
+  if (learnable) {
     recordAB("bandit", call.costUsd, qual);
     recordAB("static", call.baselineUsd, sPick.qualityPrior);
     recordAB("random", estCost(rPick, call.tokensIn, call.tokensOut), rPick.qualityPrior);
@@ -637,7 +672,9 @@ export async function handleRequest(
     difficulty,
     confidence: confidenceOf(candidates),
     reasons,
-    latency: latencyFrom(stages, call.latencyMs),
+    latency: latencyFrom(featureMs + cacheMs, banditMs, call.latencyMs),
+    cacheThreshold: hit.threshold,
+    cacheMode: hit.mode,
     candidates,
     stages,
     response: call.failed
@@ -654,8 +691,27 @@ export async function handleRequest(
 
 export const IS_SIMULATED = !HAS_KEY;
 
+type Sample = { spendUsd: number; quality: number };
+
+/** Run the same prompt through the flagship and a random model, judge both, tally. */
+async function runShadow(prompt: string, served: ModelDef, bandit: Sample): Promise<void> {
+  const run = async (m: ModelDef): Promise<Sample | null> => {
+    if (m.id === served.id) return bandit;
+    const c = await realCall(m, prompt);
+    if (c.failed) return null;
+    const j = await judge(prompt, c.response, c.quality);
+    return { spendUsd: c.costUsd, quality: j.score };
+  };
+  const random = MODELS[Math.floor(Math.random() * MODELS.length)];
+  const [flagship, rnd] = await Promise.all([run(FLAGSHIP), run(random)]);
+  if (!flagship || !rnd) return;
+  await hydrate();
+  recordMeasured({ bandit, static: flagship, random: rnd });
+  await persist();
+}
+
 /**
- * Warm-start (simulated mode only): train every arm on one (prompt, objective)
+ * Warm-start (used only without an API key): train every arm on one (prompt, objective)
  * from simulated outcomes, so each arm's linear model learns how reward depends
  * on both the prompt and the objective before any live traffic. This is a prior,
  * not fabricated history - it updates the bandit, not the metrics or the tape.
