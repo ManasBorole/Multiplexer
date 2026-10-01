@@ -1,12 +1,15 @@
 import { computeMetrics, computeFleet } from "@/lib/state";
 import { MODEL_BY_ID } from "@/lib/models";
-import { listTenants } from "@/lib/tenants";
+import { listTenants, tenantUsage } from "@/lib/tenants";
+import { hydrate } from "@/lib/persist";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Prometheus text exposition (OpenMetrics-compatible). Scrape at /api/metrics.
 export async function GET() {
+  await hydrate();
+  const usage = await tenantUsage();
   const m = computeMetrics();
   const fleet = computeFleet();
   const lines: string[] = [];
@@ -25,7 +28,7 @@ export async function GET() {
 
   metric("mux_requests_total", "Total requests handled.", "counter", m.total);
   metric("mux_routed_total", "Requests routed to a provider (non-cache).", "counter", m.routed);
-  metric("mux_cache_hits_total", "Semantic cache hits.", "counter", m.cacheHits);
+  metric("mux_cache_hits_total", "Similarity cache hits.", "counter", m.cacheHits);
   metric("mux_failures_total", "Requests that hit a provider failure.", "counter", m.failures);
   metric("mux_spend_usd", "Total spend (list-price reference).", "gauge", m.spendUsd);
   metric("mux_saved_usd", "Spend saved vs always-flagship routing.", "gauge", m.savedUsd);
@@ -53,7 +56,7 @@ export async function GET() {
   lines.push("# HELP mux_tenant_requests_total Lifetime requests per tenant.");
   lines.push("# TYPE mux_tenant_requests_total counter");
   for (const t of listTenants()) {
-    lines.push(`mux_tenant_requests_total{tenant="${t.name}"} ${t.used}`);
+    lines.push(`mux_tenant_requests_total{tenant="${t.name}"} ${usage[t.key] ?? 0}`);
   }
 
   return new Response(lines.join("\n") + "\n", {

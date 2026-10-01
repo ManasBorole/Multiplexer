@@ -1,8 +1,10 @@
-"""Offline evaluation harness for the Multiplexer LLM routing gateway.
+"""Standalone LinUCB toy model, separate from the gateway.
 
-Implements the LinUCB contextual bandit that the gateway uses to pick a model
-per request, then benchmarks it against a fixed "always use the premium model"
-baseline over a synthetic request stream to quantify cost/latency savings.
+A minimal NumPy reimplementation of disjoint LinUCB on a synthetic problem:
+3 made-up models, a 3-feature context, a quality-minus-cost reward (no latency
+term) and textbook updates (no discount factor). It illustrates the learning
+dynamics only; it does not run the gateway code. For results from the real
+router, see scripts/benchmark.mjs.
 
 Run:  python route_eval.py
 Test: pytest route_eval.py
@@ -93,7 +95,7 @@ def test_bandit_beats_premium_baseline():
     """LinUCB must route cheaper than always-premium while still learning a mix."""
     stats = summarize(evaluate())
     assert stats["requests"] == 120
-    assert stats["cost_reduction_pct"] > 20      # backs the "~25% cost cut" claim
+    assert stats["cost_reduction_pct"] > 20      # on this synthetic problem only
     assert len(stats["model_mix"]) >= 2          # it actually explores, not one arm
 
 

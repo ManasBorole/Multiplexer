@@ -2,13 +2,10 @@ import { MODELS } from "./models";
 import { newArm, type ArmState } from "./bandit";
 import type { PolicyStat, RequestRecord, Weights } from "./types";
 
-// In-memory gateway state. Real bandit + metrics + history live here and update
-// on every request. State is per server instance (ephemeral on serverless),
-// which is all the live demo needs.
-//
-// ponytail: in-memory single-instance store. Swap this module for an Upstash
-// Redis-backed one (UPSTASH_REDIS_REST_URL / _TOKEN) when you need the learned
-// routing to persist and share across instances - the interface below is the seam.
+// Gateway state: bandit arms, totals, A/B tallies, offline set. Requests work on
+// this in-process copy; lib/persist.ts loads it from Upstash Redis at the start
+// of a request and saves it afterwards, so learning survives cold starts and is
+// shared across serverless instances. Without Redis it is per-instance memory.
 
 const HISTORY_CAP = 240;
 
@@ -30,6 +27,8 @@ type Store = {
   weights: Weights;
   offline: Set<string>; // model ids forced offline (failure demo)
   abtest: { bandit: PolicyStat; static: PolicyStat; random: PolicyStat };
+  /** Shadow A/B from real calls on a 1-in-10 sample (all three policies measured). */
+  measured: { bandit: PolicyStat; static: PolicyStat; random: PolicyStat };
   totals: {
     total: number;
     routed: number;
@@ -72,6 +71,11 @@ export function store(): Store {
         static: { count: 0, spendUsd: 0, qualitySum: 0 },
         random: { count: 0, spendUsd: 0, qualitySum: 0 },
       },
+      measured: {
+        bandit: { count: 0, spendUsd: 0, qualitySum: 0 },
+        static: { count: 0, spendUsd: 0, qualitySum: 0 },
+        random: { count: 0, spendUsd: 0, qualitySum: 0 },
+      },
       totals: {
         total: 0,
         routed: 0,
@@ -91,6 +95,12 @@ export function store(): Store {
   const s = g.__mux;
   if (!s.abtest)
     s.abtest = {
+      bandit: { count: 0, spendUsd: 0, qualitySum: 0 },
+      static: { count: 0, spendUsd: 0, qualitySum: 0 },
+      random: { count: 0, spendUsd: 0, qualitySum: 0 },
+    };
+  if (!s.measured)
+    s.measured = {
       bandit: { count: 0, spendUsd: 0, qualitySum: 0 },
       static: { count: 0, spendUsd: 0, qualitySum: 0 },
       random: { count: 0, spendUsd: 0, qualitySum: 0 },
@@ -145,4 +155,55 @@ export function recordAB(
   p.count += 1;
   p.spendUsd += spendUsd;
   p.qualitySum += quality;
+}
+
+/** Add one measured shadow sample (all three policies ran the same prompt). */
+export function recordMeasured(sample: Record<"bandit" | "static" | "random", { spendUsd: number; quality: number }>): void {
+  const m = store().measured;
+  for (const k of ["bandit", "static", "random"] as const) {
+    m[k].count += 1;
+    m[k].spendUsd += sample[k].spendUsd;
+    m[k].qualitySum += sample[k].quality;
+  }
+}
+
+// History kept in the persisted snapshot: enough for drift and exploration
+// stats, without the (large) response text.
+const SNAPSHOT_HISTORY = 60;
+
+export type StoreSnapshot = {
+  arms: Record<string, ArmStats>;
+  history: RequestRecord[];
+  weights: Weights;
+  offline: string[];
+  abtest: Store["abtest"];
+  measured: Store["measured"];
+  totals: Store["totals"];
+  seeded: boolean;
+};
+
+export function snapshotStore(): StoreSnapshot {
+  const s = store();
+  return {
+    arms: Object.fromEntries(s.arms),
+    history: s.history.slice(0, SNAPSHOT_HISTORY).map((r) => ({ ...r, response: "", stages: [] })),
+    weights: s.weights,
+    offline: [...s.offline],
+    abtest: s.abtest,
+    measured: s.measured,
+    totals: { ...s.totals, latencies: s.totals.latencies.slice(-200) },
+    seeded: s.seeded,
+  };
+}
+
+export function restoreStore(snap: StoreSnapshot): void {
+  const s = store();
+  s.arms = new Map(MODELS.map((m) => [m.id, snap.arms?.[m.id] ?? freshArm()]));
+  s.history = snap.history ?? [];
+  s.weights = snap.weights ?? s.weights;
+  s.offline = new Set(snap.offline ?? []);
+  if (snap.abtest) s.abtest = snap.abtest;
+  if (snap.measured) s.measured = snap.measured;
+  if (snap.totals) s.totals = snap.totals;
+  s.seeded = !!snap.seeded;
 }

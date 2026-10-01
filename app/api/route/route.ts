@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { hydrate, persist } from "@/lib/persist";
 import { handleRequest } from "@/lib/engine";
 import { computeState, ensureSeeded } from "@/lib/state";
 import { consume } from "@/lib/tenants";
@@ -11,7 +12,7 @@ export async function POST(req: Request) {
   // Per-tenant rate limit. No key ⇒ the generous "public" tenant, so the
   // homepage demo is never throttled; a real tenant key gets its own bucket.
   const apiKey = req.headers.get("x-api-key");
-  const rl = consume(apiKey, Date.now());
+  const rl = await consume(apiKey, Date.now());
   if (!rl.ok) {
     return NextResponse.json(
       { error: `Rate limit exceeded for ${rl.tenant.name}. Retry in ${Math.ceil(rl.retryMs / 1000)}s.` },
@@ -48,7 +49,16 @@ export async function POST(req: Request) {
   }
 
   const weights = sanitizeWeights(body.weights);
+  await hydrate();
   await ensureSeeded();
+
+  // After the response is sent: save the updated state, then run deferred work
+  // (cache write, the 1-in-10 measured shadow calls) without delaying the answer.
+  const deferred: (() => Promise<void>)[] = [];
+  after(async () => {
+    await persist();
+    for (const task of deferred) await task().catch(() => {});
+  });
 
   // Stream the lifecycle as newline-delimited JSON: `token` frames carry the
   // answer as it generates, and a final `done` frame carries the full record +
@@ -64,7 +74,7 @@ export async function POST(req: Request) {
           prompt,
           weights,
           (t) => send({ type: "token", v: t }),
-          { skipCache: body.skipCache === true },
+          { skipCache: body.skipCache === true, defer: (task) => deferred.push(task) },
         );
         send({ type: "done", record, state: computeState() });
       } catch {

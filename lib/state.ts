@@ -94,6 +94,7 @@ export function computeState(): GatewayState {
     coldStart: s.totals.routed < COLD_START_ROUTED,
     routedCount: s.totals.routed,
     abtest: s.abtest,
+    measured: s.measured,
   };
 }
 
@@ -154,7 +155,11 @@ export async function ensureSeeded(): Promise<void> {
   s.seeded = true;
   const len = SEED_PROMPTS.length;
 
-  // Phase A - warm-start the bandit in BOTH modes: teach every arm the
+  // With a real API key the bandit learns only from real traffic (and, with
+  // Redis, keeps what it learned across restarts), so skip the simulated prior.
+  if (!IS_SIMULATED) return;
+
+  // Simulated mode only: warm-start the bandit - teach every arm the
   // (prompt × objective) landscape from simulated priors so routing is sensible
   // from the first real request. This primes the bandit only - no fake metrics.
   const grid = [

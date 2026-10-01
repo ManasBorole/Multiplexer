@@ -31,9 +31,8 @@ yarn-error.log*
 next-env.d.ts
 
 # local tooling and logs
-/.claude/
-/.impeccable/
 dev.log
 
 .vercel
 .env*
+!.env.example

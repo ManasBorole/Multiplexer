@@ -5,7 +5,7 @@ import type { RequestRecord } from "@/lib/types";
 import { usd, ms, pct } from "@/lib/format";
 import { Bar } from "./StepCard";
 import Num from "./Num";
-import { CACHE_THRESHOLD, STEPS, failoverOf, featureVector, model, tierPrice, tierShape } from "./routing";
+import { cacheThresholdOf, STEPS, explorationNote, failoverOf, featureVector, model, tierPrice, tierShape } from "./routing";
 import type { Weights } from "@/lib/types";
 
 export type RunError = { title: string; detail: string };
@@ -161,7 +161,7 @@ export default function Results({
         {!ready && (
           <div aria-hidden="true" className="grid gap-5">
             <div className="skeleton h-[52px]" />
-            <div className="grid gap-5 min-[1001px]:grid-cols-[1.55fr_1fr]">
+            <div className="grid gap-5 min-[1001px]:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
               <div className="skeleton h-[280px]" />
               <div className="skeleton h-[280px]" />
             </div>
@@ -204,7 +204,7 @@ function Detail({ r, weights }: { r: RequestRecord; weights: Weights }) {
   const L = r.latency;
   return (
     <>
-      <div className="grid gap-5 min-[1001px]:grid-cols-[1.55fr_1fr]">
+      <div className="grid gap-5 min-[1001px]:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <div className="panel">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className={`pill ${r.cached ? "pill-acc" : "pill-mute"}`}>
@@ -230,7 +230,7 @@ function Detail({ r, weights }: { r: RequestRecord; weights: Weights }) {
           <div>
             <p className="lead mb-1.5">Why this model</p>
             <ul className="grid gap-1.5">
-              {r.reasons.map((x) => (
+              {[explorationNote(r), ...r.reasons].filter((x): x is string => !!x).map((x) => (
                 <li key={x} className="relative pl-4 text-[13.5px] text-dim before:absolute before:left-0 before:top-2 before:h-[7px] before:w-[7px] before:rounded-[2px] before:bg-good">{x}</li>
               ))}
             </ul>
@@ -274,14 +274,20 @@ function Detail({ r, weights }: { r: RequestRecord; weights: Weights }) {
                 <i className="block bg-acc" style={{ flex: Math.max(L.banditMs, 1) }} />
                 <i className="block bg-ink" style={{ flex: Math.max(L.providerMs, 1) }} />
               </div>
-              <p className="lead">Features {ms(L.featureMs)}, routing {ms(L.banditMs)}, model {ms(L.providerMs)}</p>
+              <p className="lead">Read + cache {ms(L.featureMs)}, routing {ms(L.banditMs)}, model {ms(L.providerMs)}</p>
             </>
           )}
         </div>
         <div>
-          <h4 className="text-[13.5px] font-semibold text-dim">Semantic cache</h4>
+          <h4 className="text-[13.5px] font-semibold text-dim">{r.cacheMode === "lexical" ? "Similarity cache" : "Semantic cache"}</h4>
           <Num className="num text-[26px] font-semibold leading-none" value={r.similarity} format={(v) => v.toFixed(2)} />
-          <span className={`pill ${r.cached ? "pill-good" : "pill-warn"}`}>{r.cached ? "Hit, $0" : `Miss, hit needs ${CACHE_THRESHOLD}`}</span>
+          <span className={`pill ${r.cached ? "pill-good" : "pill-warn"}`}>
+            {r.cached
+              ? "Hit, $0"
+              : r.similarity >= cacheThresholdOf(r)
+                ? "Skipped: re-routed on purpose"
+                : `Miss, hit needs ${cacheThresholdOf(r)}`}
+          </span>
         </div>
         <div>
           <h4 className="text-[13.5px] font-semibold text-dim">Judge</h4>

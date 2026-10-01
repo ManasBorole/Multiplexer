@@ -165,7 +165,7 @@
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    width: max-content;
+    width: fit-content;
     max-width: 100%;
     padding: 4px 10px;
     border-radius: 8px;

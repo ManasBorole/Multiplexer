@@ -63,6 +63,9 @@ export type RequestRecord = {
   judge?: Judgement;
   /** Shadow mode: what each policy WOULD have picked (no user impact). */
   shadow?: { bandit: string; static: string; random: string };
+  /** Similarity a cache hit needed for this request, and which cache answered. */
+  cacheThreshold?: number;
+  cacheMode?: "semantic" | "lexical";
 };
 
 /** LLM-as-Judge output for one answer. */
@@ -134,4 +137,6 @@ export type GatewayState = {
   routedCount: number;
   /** A/B tallies: bandit (live) vs static (always flagship) vs random. */
   abtest: { bandit: PolicyStat; static: PolicyStat; random: PolicyStat };
+  /** Shadow A/B from real calls on a 1-in-10 sample of real-key traffic (all visitors). */
+  measured?: { bandit: PolicyStat; static: PolicyStat; random: PolicyStat };
 };
