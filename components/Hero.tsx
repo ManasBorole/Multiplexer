@@ -52,6 +52,28 @@ export default function Hero({
   onResults: () => void;
 }) {
   const n = normWeights(weights);
+  // Whole percentages that always total 100 (largest remainder), so the
+  // labels and the slider handles agree.
+  const KEYS = ["quality", "cost", "latency"] as const;
+  const raw = KEYS.map((k) => n[k] * 100);
+  const pctOf = KEYS.map((_, i) => Math.floor(raw[i]));
+  KEYS.map((_, i) => i)
+    .sort((a, b) => (raw[b] - pctOf[b]) - (raw[a] - pctOf[a]))
+    .slice(0, 100 - pctOf.reduce((a, b) => a + b, 0))
+    .forEach((i) => (pctOf[i] += 1));
+  const pctFor = (k: keyof Weights) => pctOf[KEYS.indexOf(k as (typeof KEYS)[number])];
+
+  // Moving one weight rebalances the other two in proportion, keeping the total at 100%.
+  const setOne = (k: keyof Weights, v: number) => {
+    const others = KEYS.filter((x) => x !== k);
+    const rest = 1 - v;
+    const sumOthers = others.reduce((a, x) => a + n[x], 0);
+    const next = { ...n, [k]: v } as Weights;
+    others.forEach((x) => {
+      next[x] = sumOthers > 0 ? (n[x] / sumOthers) * rest : rest / others.length;
+    });
+    setWeights(next);
+  };
   const same = (a: Weights, b: Weights) =>
     (["quality", "cost", "latency"] as const).every((k) => Math.abs(a[k] - b[k]) < 0.005);
 
@@ -167,12 +189,12 @@ export default function Hero({
                 type="range"
                 min={0}
                 max={100}
-                value={Math.round(weights[s.key] * 100)}
-                onChange={(e) => setWeights({ ...weights, [s.key]: Number(e.target.value) / 100 })}
+                value={pctFor(s.key)}
+                onChange={(e) => setOne(s.key, Number(e.target.value) / 100)}
                 className="range"
-                aria-valuetext={`${s.label} ${Math.round(n[s.key] * 100)} percent of the objective`}
+                aria-valuetext={`${s.label} ${pctFor(s.key)} percent of the objective`}
               />
-              <output className="num text-right text-[12.5px] text-ink">{Math.round(n[s.key] * 100)}%</output>
+              <output className="num text-right text-[12.5px] text-ink">{pctFor(s.key)}%</output>
             </label>
           ))}
           <div className="flex h-1.5 gap-0.5 overflow-hidden rounded-full" aria-hidden="true">
